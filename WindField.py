@@ -1,5 +1,6 @@
-from numpy import array, interp, matmul, reshape
+from numpy import array, interp, matmul, reshape, ravel
 from DCM import DCM
+
 
 def WindField(height,phir,thetar,psir):
     '''
@@ -14,6 +15,9 @@ def WindField(height,phir,thetar,psir):
     winde = [interp(height, windh,windx), interp(height, windh,windy), interp(height, windh,windz)];   # Earth-relative frame
     winde = reshape(winde, (3,1))
     HEB     =   DCM(phir,thetar,psir)
-    windb   =   matmul(HEB, winde)                 # Body-axis frame  (3x1) matrix
+    windb   =   matmul(HEB, winde).ravel()                # Body-axis frame  (3x1) matrix
 
     return windb
+
+if __name__ == "__main__":
+    WindField(height,phir,thetar,psir)

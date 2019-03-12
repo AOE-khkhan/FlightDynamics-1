@@ -1,0 +1,14 @@
+## global variables
+GEAR        = 0
+CONHIS      = 0
+SPOIL       = 0
+u           = 0
+x           = 0
+V           = 0
+uInc        = 0
+tuHis       = 0
+deluHis     = 0
+TrimHist    = 0
+SMI         = 0
+MODEL       = 0
+RUNNING     = 0

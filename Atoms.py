@@ -40,4 +40,5 @@ def Atoms(geomAlt):
     
     return (airDens, airPres, temp, soundSpeed)
 
-
+if __name__ == "__main__":
+    Atoms(geomAlt)
