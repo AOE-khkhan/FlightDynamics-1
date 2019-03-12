@@ -8,7 +8,7 @@ import numpy as np
 from scipy.optimize import fmin
 
 ## global variables    ######??????  maybe this is not a good idea to declare them first here and also with the value of zero
-#############################################      check for function dependancies and then declare them a they comeup
+#############################################      check for function dependancies and then declare them as they comeup
 GEAR        = 0
 CONHIS      = 0
 SPOIL       = 0
