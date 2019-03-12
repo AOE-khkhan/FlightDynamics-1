@@ -9,6 +9,9 @@ from scipy.optimize import fmin
 
 ## global variables    ######??????  maybe this is not a good idea to declare them first here and also with the value of zero
 #############################################      check for function dependancies and then declare them as they comeup
+########################### there is another possible ways like returning some extra variables in fucntion for other function 
+########################### and line function up as per their occurance might solve problem
+########################### other way is to breakdown function and move some variables out of function into global scope might solve problem
 GEAR        = 0
 CONHIS      = 0
 SPOIL       = 0
