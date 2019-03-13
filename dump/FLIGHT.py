@@ -1,9 +1,59 @@
 ### FLIGHT.py -- Generic 6-DOF Trim, Linear Model, and Flight Path Simulation
 
+#####   ????? <== search for queries and doubts
+
 #import
 import math
 import numpy as np
 from scipy.optimize import fmin
+
+## global variables    ######??????  maybe this is not a good idea to declare them first here and also with the value of zero
+#############################################      check for function dependancies and then declare them a they comeup
+GEAR        = 0
+CONHIS      = 0
+SPOIL       = 0
+u           = 0
+x           = 0
+V           = 0
+uInc        = 0
+tuHis       = 0
+deluHis     = 0
+TrimHist    = 0
+SMI         = 0
+MODEL       = 0
+RUNNING     = 0
+m           = 0
+Ixx         = 0
+Iyy         = 0
+Izz         = 0
+Ixz         = 0
+S           = 0
+b           = 0
+cBar        = 0
+
+
+
+# global GEAR
+# global CONHIS
+# global SPOIL
+# global u
+# global x
+# global V
+# global uInc
+# global tuHis
+# global deluHis
+# global TrimHist
+# global SMI
+# global MODEL
+# global RUNNING
+# global m
+# global Ixx
+# global Iyy
+# global Izz
+# global Ixy
+# global S
+# global b
+# global cBar
 
 
 print('** ======================= **')
@@ -18,21 +68,21 @@ print('** ======================= **\n')
 #       Simulate flight path using nonlinear equation of motion
 
 #### Function used by FLIGHT:
-#       AeroModelAlpha.py    High-Alpha, Low-Mach aerodynamic coefficients of the aircraft,
-#                            thrust model, and geometric and inertial properties
-#       AeroModelMach.py     Low-Alpha, High-Mach aerodynamic coefficients of the aircraft,
-#                            thrust model, and geometric and inertial properties
-#       AeroMoedelUser.py    User-defined aerodynamic corfficietns of the aircraft,
-#                            thrust model, and geometric and inertial properties
-#       Atoms.py             Air density, sound speed
-#       DCM.py               Direction-cosine (Rotation) matrix from Euler Angles
-#       RMQ.py               Direction-cosine (Rotation) matrix from Quaternions
-#       EoM.py               Equations of motion for integration (Euler Angles)
-#       EoMQ.py              Equations of motion for integration (Quaternions)
-#       Linmodel.py          Equations of motion for defining linear-model
-#                            (F & G) matrices via central differences
-#       TrimCost.py          Cost function for trim solution
-#       WindField.py         Wind velocity components
+#       AeroModelAlpha.m    High-Alpha, Low-Mach aerodynamic coefficients of the aircraft,
+#                           thrust model, and geometric and inertial properties
+#       AeroModelMach.m     Low-Alpha, High-Mach aerodynamic coefficients of the aircraft,
+#                           thrust model, and geometric and inertial properties
+#       AeroMoedelUser.m    User-defined aerodynamic corfficietns of the aircraft,
+#                           thrust model, and geometric and inertial properties
+#       Atoms.m             Air density, sound speed
+#       DCM.m               Direction-cosine (Rotation) matrix from Euler Angles
+#       RMQ.m               Direction-cosine (Rotation) matrix from Quaternions
+#       EoM.m               Equations of motion for integration (Euler Angles)
+#       EoMQ.m              Equations of motion for integration (Quaternions)
+#       Linmodel.m          Equations of motion for defining linear-model
+#                           (F & G) matrices via central differences
+#       TrimCost.m          Cost function for trim solution
+#       WindField.m         Wind velocity components
 
 ### DEFINITION OF THE STATE VECTOR
 ##   With Euler Angle DCM option (QUAT=0):
@@ -206,13 +256,30 @@ def RMQ(q1,q2,q3,q4):
 def AeroModelUser(x,u,Mach,alphar,betar,V):
     '''
         T-X Trainer Aerodynamic Coefficients, Thrust Model,
-        and Geometric and Inertial Properties for FLIGHT.py
+        and Geometric and Inertial Properties for FLIGHT.m
         Low-Angle-of-Attack, Mach-Dependent Model
 
         Called by:
                 EoM.py
                 EoMQ.py
     '''
+
+    global uInc
+    global tuHis
+    global deluHis
+    global TrimHist
+    global SMI
+    global MODEL
+    global RUNNING
+    global m
+    global Ixx
+    global Iyy
+    global Izz
+    global Ixy
+    global S
+    global b
+    global cBar
+
 
     # Mass, Inertial, and Reference Properties
     m               =   4800
@@ -309,13 +376,14 @@ def AeroModelUser(x,u,Mach,alphar,betar,V):
     Cn      =	(Cno + CnBeta*betar + Cnp*x[6] + Cnr*x[8] + CndA*u[1] + CndR*u[2])*Prandtl
 
 
-    return (CD,CL,CY,Cl,Cm,Cn,Thrust,m,Ixx,Iyy,Izz,Ixz,cBar,b,S)
+    return (CD,CL,CY,Cl,Cm,Cn,Thrust)
 
 ################################################################################
 def EoM(t,x):
     '''
 		FLIGHT Equations of Motion
 	'''
+    global GEAR
     global CONHIS
     global SPOIL
     global u
@@ -323,15 +391,58 @@ def EoM(t,x):
     global uInc
     global tuHis
     global deluHis
+    global TrimCost
+    global SMI
     global MODEL
     global RUNNING
+    global Ixx
+    global Iyy
+    global Izz
+    global Ixy
+    global Ixz
+    global Iyz
+    global s
+    global cBar
+    # global GEAR
+    # global CONHIS
+    # global SPOIL
+    # global u
+    # global V
+    # global uInc
+    # global tuHis
+    # global deluHis
+    # global TrimHist
+    # global SMI
+    # global MODEL
+    # global RUNNING
+    # global m
+    # global Ixx
+    # global Iyy
+    # global Izz
+    # global Ixy
+    # global S
+    # global b
+    # global cBar
 
-    # if MODEL == 0:
-    #     from AeroModelAlpha import AeroModelAlpha as AeroModel
-    # elif MODEL == 1:
-    #     from AeroModelMach import AeroModelMach as AeroModel
-    # else:
-    #     from AeroModelUser import AeroModelUser as AeroModel
+	#MODEL = 2
+	#CONHIS = 1
+	#RUNNING = 1
+	#tuHis	=	array([0, 33, 67, 100])
+	#deluHis	=	array(zeros(28)).reshape((4,7))
+	#u = array([0,0,0,0,0,0,0]).reshape((7,1)).ravel()
+
+	#print(f'tuHis = {tuHis}')
+	#print(f'deluHis = {deluHis}')
+	#print(f'u = {u}')
+
+	#print(f'x = {x}')
+
+    if MODEL == 0:
+        from AeroModelAlpha import AeroModelAlpha as AeroModel
+    elif MODEL == 1:
+        from AeroModelMach import AeroModelMach as AeroModel
+    else:
+        from AeroModelUser import AeroModelUser as AeroModel
 
 	##### Event Function ####### ????????????????
 	############################
@@ -347,10 +458,20 @@ def EoM(t,x):
 	# Body-Axis Gravity Components
     gb = np.matmul(HEB, np.array([0,0,9.80665]).reshape((3,1))).ravel()
 
+	#print(f'windb = {windb}')
+
+
 	# Air-Relative Velocity Vector
     x[0]    =   max(x[0],0)     # Limit axial velocity to >= 0 m/s
     Va		=   np.array([[x[0],x[1],x[2]]]).reshape(3,1).ravel() + windb
+
+	#print(f'Va 1st part = {array([[x[0],x[1],x[2]]]).reshape(3,1).ravel()}')
+	#print(f'windb.T = {matrix.transpose(windb)}')
+	#print(f'Va = {Va}')
+     
     V = math.sqrt(np.matmul(np.matrix.transpose(Va), Va))
+
+	#print(f'V = {V}')
     
     alphar = math.atan(Va[2]/abs(Va[0]))
 	#alphar  =   min(alphar, (pi/2 - 1e-6))     # Limit angle of attack to <= 90 deg
@@ -360,6 +481,8 @@ def EoM(t,x):
     beta	= 	57.2957795 * betar
     Mach	= 	V / soundSpeed
     qbar	=	0.5 * airDens * V**2
+
+	#print(f'Mach = {Mach}')
 
 
 	# Incremental Flight Control Effects
@@ -372,15 +495,20 @@ def EoM(t,x):
         uTotal  =   u
 	
 	# Force and Moment Coefficients; Thrust
-    if MODEL == 0:
-        (CD,CL,CY,Cl,Cm,Cn,Thrust) = AeroModelAlpha(x,uTotal,Mach,alphar,betar,V)
-    elif MODEL == 1:
-        (CD,CL,CY,Cl,Cm,Cn,Thrust) = AeroModelMach(x,uTotal,Mach,alphar,betar,V)
-    else:
-        (CD,CL,CY,Cl,Cm,Cn,Thrust,m,Ixx,Iyy,Izz,Ixz,cBar,b,S) = AeroModelUser(x,uTotal,Mach,alphar,betar,V)
-    
-    
-    #(CD,CL,CY,Cl,Cm,Cn,Thrust) = AeroModelUser(x,uTotal,Mach,alphar,betar,V)
+    (CD,CL,CY,Cl,Cm,Cn,Thrust) = AeroModel(x,uTotal,Mach,alphar,betar,V)
+	#print(f'CD = {CD}')
+
+	# m               =   4800
+	# Ixx = 20950
+	# Iyy=49675
+	# Izz = 62525
+	# Ixz = -1710
+	# cBar            =   3.03
+	# b               =   10
+	# S               =   27.77
+	# lHT             =   5.2
+	# lVT             =   3.9
+	# StaticThrust    =   49000
     
     qbarS   =   qbar * S
     
@@ -389,6 +517,9 @@ def EoM(t,x):
 
 	# State Accelerations
     Xb =	(CX * qbarS + Thrust) / m
+	# print(f'CX = {CX}')
+	# print(f'qbarS = {qbarS}')
+	# print(f'Thrust = {Thrust}')
     Yb =	CY * qbarS / m
     Zb =	CZ * qbarS / m
     Lb =	Cl * qbarS * b
@@ -401,8 +532,19 @@ def EoM(t,x):
     xd2 = Yb + gb[1] - x[8] * x[0] + x[6] * x[2]
     xd3 = Zb + gb[2] + x[7] * x[0] - x[6] * x[1]
 
+	#print(f'Xb = {Xb}')
+	#print(f'gb[0] = {gb[0]}')
+
+	#print(f'xd1 = {xd1}')
+
+	# xd1 = xd1[0][0]
+	# xd2 = xd2[0][0]
+	# xd3 = xd3[0][0]
+    
     HEB_T = np.matrix.transpose(HEB)
     y = np.matmul(HEB_T, np.array([x[0], x[1], x[2]]))
+	#HEB_T = np.matrix.transpose(HEB)
+	#y = np.matmul(HEB_T, (np.array(x[0],x[1],x[2]))
      
     xd4 = y[0]
     xd5 = y[1]
@@ -411,6 +553,10 @@ def EoM(t,x):
     xd7	= 	((Izz * Lb + Ixz * Nb - (Ixz * (Iyy - Ixx - Izz) * x[6] + (Ixz**2 + Izz * (Izz - Iyy)) * x[8]) * x[7]) / (Ixx * Izz - Ixz**2))
     xd8 = 	((Mb - (Ixx - Izz) * x[6] * x[8] - Ixz * (x[6]**2 - x[8]**2)) / Iyy)
     xd9 =	((Ixz * Lb + Ixx * Nb + (Ixz * (Iyy - Ixx - Izz) * x[8] + (Ixz**2 + Ixx * (Ixx - Iyy)) * x[6]) * x[7]) / (Ixx * Izz - Ixz**2))
+
+	# xd7 = xd7[0][0]
+	# xd8 = xd8[0][0]
+	# xd9 = xd9[0][0]
     
     cosPitch	=	math.cos(x[10])
     if abs(cosPitch)	<=	0.00001:
@@ -433,10 +579,27 @@ def TrimCost(OptParam):
     '''
         FLIGHT Cost Function for Longitudinal Trim in Steady Level Flight
     '''
+    global GEAR
+    global CONHIS
+    global SPOIL
     global u
     global x
     global V
+    global uInc
+    global tuHis
+    global deluHis
     global TrimHist
+    global SMI
+    global MODEL
+    global RUNNING
+    global m
+    global Ixx
+    global Iyy
+    global Izz
+    global Ixy
+    global S
+    global b
+    global cBar
 
     R = np.array([[1,0,0],[0,1,0],[0,0,1]])
     R = R.reshape((3,3))
@@ -469,11 +632,25 @@ def TrimCost(OptParam):
             x[11]]).reshape((12,1)).ravel()
     
     xdot    = EoM(1,x)
+    #print(f'xdot = {xdot}')
     xCost   = np.array([xdot[0], xdot[2], xdot[7]]).reshape((3,1))
+    #print(f'xCost = {xCost}')
+    #print(f'xCost Size = {xCost.shape}')
     # J = quadretic cost function    # otehr choices avilable to compute cost function(J)
+    #print(f'R = {R}')
+    #print(f'R Size = {R.shape}')
     J       =   (np.matmul(np.matmul(xCost.T, R), xCost)).ravel().reshape((1,1))    ## xCost' * R * xCost
+    #print(f'J = {J}')
+    #print(f'J.shape = {J.shape}')
+    #print(f'OptParam = {OptParam}')
+    #print(f'size of OptParam = {OptParam.shape}')
     ParamCost   =   (np.vstack((OptParam, J))).ravel().reshape((4,1))   ##[OptParam;J];   # column vector
-    TrimHist    =   np.hstack((TrimHist, ParamCost))   # 4 rows showing history of trim computation over "INDEX" times
+    #print(F'ParamCost = {ParamCost}')
+    #print(f'TrimHist = {TrimHist}')
+    #print(f'TrimHist.shape = {TrimHist.shape}')
+    TrimHist    =   np.hstack((TrimHist, ParamCost))   # 4 rows showing history of trim computation over "INDEX" times 
+    #print(f'TrimHist = {TrimHist}')
+    ##set TrimHist = [0,0,0,0]
     
     return J
 
@@ -499,7 +676,6 @@ def LinModel(tj,xj):
 ##########################################################################################################################################
 ##########################################################################################################################################
 ##########################################################################################################################################
-
 
 
 ### Initial Altitude(ft), Indicated Airspeed(kt)
@@ -554,7 +730,7 @@ gamma   =   57.2957795 * np.arctan(hdot / np.sqrt(V**2 - hdot**2))    #      ## 
 qbar	= 	0.5 * airDens * V**2	    # Dynamic Pressure, N/m**2
 IAS		=	np.sqrt(2 * qbar / 1.225)      # Indicated Air Speed, m/s
 Mach	= 	V / soundSpeed              # Mach Number
-print(f'Mach number = {str(Mach)}, Flight Path Angle = {str(gamma)} deg\n')
+print(f'Mach number = {str(Mach)}, Flight Path Angle = {str(gamma)}, deg\n')
 
 uInc    =   [];      #      #
 if MODEL == 0:
@@ -593,7 +769,7 @@ print(f'Phi = {str(delx[9])} rad, Theta = {str(delx[10])} rad, Psi = {str(delx[1
 print('\nControl Vector Time History Table')
 print('=================================')
 print('Time, sec: t0, t1, t2, ...')
-tuHis	=	np.array([[0, 33, 67, 100]]).T    #  size = (4,1)
+tuHis	=	np.array([[0, 33, 67, 100]])    #  size = (4,1)
 print(f'tuHis = {tuHis}')
 
 print('Columns:  Elements of the Control Vector')
@@ -648,88 +824,10 @@ print(u.shape)
 #		2 = Throttle, %
 #		3 = Pitch Angle, rad
 
-# A  = fmin(TrimCost,InitParam)
-# print(f'A[1] = {A[1]}')
-# print(f'A[2] = {A[2]}')
 
 
-if TRIM >= 1:
-    print('\nTRIM Stabilator, Thrust, and Pitch Angle')
-    print('========================================')
-    OptParam        =   np.zeros(3).reshape((3,1))
-    TrimHist        =    np.zeros(4).reshape((4,1))
-    InitParam		=	np.array([0.0369,0.1892,0.0986]).reshape((3,1)).ravel()
 
-    (OptParam,J,ExitFlag,Output) = fmin(TrimCost,InitParam)
-    
-
-    print(['Trim Cost = ',num2str(J),', Exit Flag = ',num2str(ExitFlag)])
-    Output
-    ## Optimizing Trim Error Cost with respect to dSr, dT, and Theta
-    TrimHist
-    Index=  [1:length(TrimHist)]
-    TrimStabDeg     =   57.2957795*OptParam(1)
-    TrimThrusPer    =   100*OptParam(2)
-    TrimPitchDeg    =   57.2957795*OptParam(3)
-    TrimAlphaDeg    =   TrimPitchDeg - gamma
-    print(['Stabilator  = ',num2str(TrimStabDeg),' deg, Thrust = ',num2str(TrimThrusPer),' x 100%'])
-    print(['Pitch Angle = ',num2str(TrimPitchDeg),' deg, Angle of Attack = ',num2str(TrimAlphaDeg),' deg'])
-    
-    ## Insert trim values in nominal control and state vectors
-    print(' ')
-    print('Trimmed Initial Control and State Vectors')
-    print('=========================================')
-    u	=	[u(1)
-            u(2)
-            u(3)
-            OptParam(2)
-            u(5)
-            u(6)
-            OptParam(1)]
-    format long			
-    x	=	[V * cos(OptParam(3))
-            x(2)
-            V * sin(OptParam(3))
-            x(4)
-            x(5)
-            x(6)
-            x(7)
-            x(8)
-            x(9)
-            x(10)
-            OptParam(3)
-            x(12)]
-    print('Control Vector')
-    print('--------------')
-    print(['Elevator   = ',num2str(u(1)),' rad, Aileron = ',num2str(u(2)),' rad, Rudder = ',num2str(u(3)),' rad'])
-    print(['Throttle   = ',num2str(u(4)),' x 100%, Asymm Spoiler = ',num2str(u(5)),' rad, Flap = ',num2str(u(6)),' rad'])
-    print(['Stabilator = ',num2str(u(7)),' rad'])
-
-    print('  ')
-    print('State Vector')
-    print('------------')
-    print(['u   = ',num2str(x(1)),' m/s, v = ',num2str(x(2)),' m/s, w = ',num2str(x(3)),' m/s'])
-    print(['x   = ',num2str(x(4)),' m, y = ',num2str(x(5)),' m, z = ',num2str(x(6)),' m'])
-    print(['p   = ',num2str(x(7)),' rad/s, q = ',num2str(x(8)),' rad/s, r = ',num2str(x(9)),' rad/s'])
-    print(['Phi = ',num2str(x(10)),' rad, Theta = ',num2str(x(11)),' rad, Psi = ',num2str(x(12)),' rad'])
-    print('  ')
-    format short
-end
-		
-        
-        figure
-		subplot(1,2,1)
-		plot(Index,TrimHist(1,:),Index,TrimHist(2,:),Index,TrimHist(3,:)), legend('Stabilator', 'Thrust', 'Pitch Angle')
-		xlabel('Iterations'), ylabel('Stabilator(blue), Thrust(green), Pitch Angle(red)'), grid
-        title('Trim Parameters'), legend('Stabilator, rad', 'Thrust, 100%', 'Pitch Angle, rad')
-		subplot(1,2,2)
-		semilogy(Index,TrimHist(4,:))
-		xlabel('Iterations'), ylabel('Trim Cost'), grid
-        title('Trim Cost')
-
-
-#######################################################################
-
+#from TrimCost import TrimCost
 OptParam        =   np.array([]).reshape((0,0))
 TrimHist        =   np.zeros(4).reshape((4,1))
 InitParam		=	(np.array([0.0369,0.1892,0.0986])).reshape((3,1)).ravel()
@@ -738,3 +836,86 @@ print(f'InitParam = {InitParam}')
 A  = fmin(TrimCost,InitParam)
 print(f'A[1] = {A[1]}')
 print(f'A[2] = {A[2]}')
+
+
+
+# if TRIM >= 1:
+#     print('\nTRIM Stabilator, Thrust, and Pitch Angle')
+#     print('========================================')
+#     OptParam        =   np.array([]).reshape((0,0))
+#     TrimHist        =   np.array([]).reshape((0,0))
+#     InitParam		=	np.array([0.0369,0.1892,0.0986]).reshape((3,1))
+
+#     (OptParam,J,ExitFlag,Output)  =	scipy.optimize.fmin(TrimCost,InitParam)
+    
+
+#     print(['Trim Cost = ',num2str(J),', Exit Flag = ',num2str(ExitFlag)])
+#     Output
+#     ## Optimizing Trim Error Cost with respect to dSr, dT, and Theta
+#     TrimHist
+#     Index=  [1:length(TrimHist)]
+#     TrimStabDeg     =   57.2957795*OptParam(1)
+#     TrimThrusPer    =   100*OptParam(2)
+#     TrimPitchDeg    =   57.2957795*OptParam(3)
+#     TrimAlphaDeg    =   TrimPitchDeg - gamma
+#     print(['Stabilator  = ',num2str(TrimStabDeg),' deg, Thrust = ',num2str(TrimThrusPer),' x 100%'])
+#     print(['Pitch Angle = ',num2str(TrimPitchDeg),' deg, Angle of Attack = ',num2str(TrimAlphaDeg),' deg'])
+    
+#     ## Insert trim values in nominal control and state vectors
+#     print(' ')
+#     print('Trimmed Initial Control and State Vectors')
+#     print('=========================================')
+#     u	=	[u(1)
+#             u(2)
+#             u(3)
+#             OptParam(2)
+#             u(5)
+#             u(6)
+#             OptParam(1)]
+#     format long			
+#     x	=	[V * cos(OptParam(3))
+#             x(2)
+#             V * sin(OptParam(3))
+#             x(4)
+#             x(5)
+#             x(6)
+#             x(7)
+#             x(8)
+#             x(9)
+#             x(10)
+#             OptParam(3)
+#             x(12)]
+#     print('Control Vector')
+#     print('--------------')
+#     print(['Elevator   = ',num2str(u(1)),' rad, Aileron = ',num2str(u(2)),' rad, Rudder = ',num2str(u(3)),' rad'])
+#     print(['Throttle   = ',num2str(u(4)),' x 100%, Asymm Spoiler = ',num2str(u(5)),' rad, Flap = ',num2str(u(6)),' rad'])
+#     print(['Stabilator = ',num2str(u(7)),' rad'])
+
+#     print('  ')
+#     print('State Vector')
+#     print('------------')
+#     print(['u   = ',num2str(x(1)),' m/s, v = ',num2str(x(2)),' m/s, w = ',num2str(x(3)),' m/s'])
+#     print(['x   = ',num2str(x(4)),' m, y = ',num2str(x(5)),' m, z = ',num2str(x(6)),' m'])
+#     print(['p   = ',num2str(x(7)),' rad/s, q = ',num2str(x(8)),' rad/s, r = ',num2str(x(9)),' rad/s'])
+#     print(['Phi = ',num2str(x(10)),' rad, Theta = ',num2str(x(11)),' rad, Psi = ',num2str(x(12)),' rad'])
+#     print('  ')
+#     format short
+# end
+		
+        
+#         figure
+# 		subplot(1,2,1)
+# 		plot(Index,TrimHist(1,:),Index,TrimHist(2,:),Index,TrimHist(3,:)), legend('Stabilator', 'Thrust', 'Pitch Angle')
+# 		xlabel('Iterations'), ylabel('Stabilator(blue), Thrust(green), Pitch Angle(red)'), grid
+#         title('Trim Parameters'), legend('Stabilator, rad', 'Thrust, 100%', 'Pitch Angle, rad')
+# 		subplot(1,2,2)
+# 		semilogy(Index,TrimHist(4,:))
+# 		xlabel('Iterations'), ylabel('Trim Cost'), grid
+#         title('Trim Cost')
+
+
+
+print(Ixx)
+print(Iyy)
+print(Izz)
+print(Ixz)

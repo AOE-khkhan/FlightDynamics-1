@@ -4,7 +4,7 @@ from numpy import array, reshape, cos, sin, matmul, concatenate, hstack
 # globals ?????
 
 
-def TrimCost(OptParam,u):
+def TrimCost(OptParam):
     '''
         FLIGHT Cost Function for Longitudinal Trim in Steady Level Flight
     '''
