@@ -208,10 +208,6 @@ def AeroModelUser(x,u,Mach,alphar,betar,V):
         T-X Trainer Aerodynamic Coefficients, Thrust Model,
         and Geometric and Inertial Properties for FLIGHT.py
         Low-Angle-of-Attack, Mach-Dependent Model
-
-        Called by:
-                EoM.py
-                EoMQ.py
     '''
 
     # Mass, Inertial, and Reference Properties
