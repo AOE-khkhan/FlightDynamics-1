@@ -4,6 +4,7 @@
 import math
 import numpy as np
 from scipy.optimize import fmin
+import matplotlib.pyplot as plt
 
 
 print('** ======================= **')
@@ -472,10 +473,10 @@ def TrimCost(OptParam):
     xCost   = np.array([xdot[0], xdot[2], xdot[7]]).reshape((3,1))
     # J = quadretic cost function    # otehr choices avilable to compute cost function(J)
     J       =   (np.matmul(np.matmul(xCost.T, R), xCost)).ravel().reshape((1,1))    ## xCost' * R * xCost
-    ParamCost   =   (np.vstack((OptParam, J))).ravel().reshape((4,1))   ##[OptParam;J];   # column vector
-    TrimHist    =   np.hstack((TrimHist, ParamCost))   # 4 rows showing history of trim computation over "INDEX" times
-    
-    return J
+    ParamCost   =   (np.vstack((OptParam, J))).reshape((4,1))   ##[OptParam;J];   # column vector
+    TrimHist    =   np.concatenate((TrimHist, ParamCost), axis=1)   # 4 rows showing history of trim computation over "INDEX" times
+
+    return J.ravel()[0]
 
 ################################################################################
 def LinModel(tj,xj):
@@ -648,11 +649,6 @@ print(u.shape)
 #		2 = Throttle, %
 #		3 = Pitch Angle, rad
 
-# A  = fmin(TrimCost,InitParam)
-# print(f'A[1] = {A[1]}')
-# print(f'A[2] = {A[2]}')
-
-
 if TRIM >= 1:
     print('\nTRIM Stabilator, Thrust, and Pitch Angle')
     print('========================================')
@@ -660,81 +656,69 @@ if TRIM >= 1:
     TrimHist        =    np.zeros(4).reshape((4,1))
     InitParam		=	np.array([0.0369,0.1892,0.0986]).reshape((3,1)).ravel()
 
-    (OptParam,J,ExitFlag,Output) = fmin(TrimCost,InitParam)
-    
+    #(OptParam,J,ExitFlag,Output) = fmin(TrimCost,InitParam)
+    InitParam = [0.0369, 0.1992, 0.0986]
+    (OptParam) = fmin(TrimCost,InitParam, xtol=1e-10)
+    print(f'OptParam = {OptParam}')
+    J = TrimCost(OptParam)
+    print(f'J = {J}')
+    print(f'Trim Cost = {str(J)}')
 
-    print(['Trim Cost = ',num2str(J),', Exit Flag = ',num2str(ExitFlag)])
-    Output
     ## Optimizing Trim Error Cost with respect to dSr, dT, and Theta
-    TrimHist
-    Index=  [1:length(TrimHist)]
-    TrimStabDeg     =   57.2957795*OptParam(1)
-    TrimThrusPer    =   100*OptParam(2)
-    TrimPitchDeg    =   57.2957795*OptParam(3)
+    Index=  list(range(0,len(TrimHist[0])))   # row lenght of TrimHist
+    TrimStabDeg     =   57.2957795*OptParam[0]
+    TrimThrusPer    =   100*OptParam[1]
+    TrimPitchDeg    =   57.2957795*OptParam[2]
     TrimAlphaDeg    =   TrimPitchDeg - gamma
-    print(['Stabilator  = ',num2str(TrimStabDeg),' deg, Thrust = ',num2str(TrimThrusPer),' x 100%'])
-    print(['Pitch Angle = ',num2str(TrimPitchDeg),' deg, Angle of Attack = ',num2str(TrimAlphaDeg),' deg'])
+    print(f'Stabilator  = {str(TrimStabDeg)} deg, Thrust = {str(TrimThrusPer)} x 100%')
+    print(f'Pitch Angle = {str(TrimPitchDeg)} deg, Angle of Attack = {str(TrimAlphaDeg)} deg')
     
     ## Insert trim values in nominal control and state vectors
-    print(' ')
-    print('Trimmed Initial Control and State Vectors')
+    print('\nTrimmed Initial Control and State Vectors')
     print('=========================================')
-    u	=	[u(1)
-            u(2)
-            u(3)
-            OptParam(2)
-            u(5)
-            u(6)
-            OptParam(1)]
-    format long			
-    x	=	[V * cos(OptParam(3))
-            x(2)
-            V * sin(OptParam(3))
-            x(4)
-            x(5)
-            x(6)
-            x(7)
-            x(8)
-            x(9)
-            x(10)
-            OptParam(3)
-            x(12)]
+    u	=	[u[0],u[1],u[2],OptParam[1],u[4],u[5],OptParam[0]]
+
+    x	=	[V * math.cos(OptParam[2]),
+            x[1],
+            V * math.sin(OptParam[2]),
+            x[3],
+            x[4],
+            x[5],
+            x[6],
+            x[7],
+            x[8],
+            x[9],
+            OptParam[2],
+            x[11]]
     print('Control Vector')
     print('--------------')
-    print(['Elevator   = ',num2str(u(1)),' rad, Aileron = ',num2str(u(2)),' rad, Rudder = ',num2str(u(3)),' rad'])
-    print(['Throttle   = ',num2str(u(4)),' x 100%, Asymm Spoiler = ',num2str(u(5)),' rad, Flap = ',num2str(u(6)),' rad'])
-    print(['Stabilator = ',num2str(u(7)),' rad'])
+    print([f'Elevator   = {str(u[0])} rad, Aileron = {str(u[1])} rad, Rudder = {str(u[2])} rad'])
+    print([f'Throttle   = {str(u[3])} x 100%, Asymm Spoiler = {str(u[4])} rad, Flap = {str(u[5])} rad'])
+    print([f'Stabilator = {str(u[6])} rad'])
 
-    print('  ')
-    print('State Vector')
+    print('\nState Vector')
     print('------------')
-    print(['u   = ',num2str(x(1)),' m/s, v = ',num2str(x(2)),' m/s, w = ',num2str(x(3)),' m/s'])
-    print(['x   = ',num2str(x(4)),' m, y = ',num2str(x(5)),' m, z = ',num2str(x(6)),' m'])
-    print(['p   = ',num2str(x(7)),' rad/s, q = ',num2str(x(8)),' rad/s, r = ',num2str(x(9)),' rad/s'])
-    print(['Phi = ',num2str(x(10)),' rad, Theta = ',num2str(x(11)),' rad, Psi = ',num2str(x(12)),' rad'])
-    print('  ')
-    format short
-end
+    print(f'u   = {str(x[0])} m/s, v = {str(x[1])} m/s, w = {str(x[2])} m/s')
+    print(f'x   = {str(x[3])} m, y = {str(x[4])} m, z = {str(x[5])} m')
+    print(f'p   = {str(x[6])} rad/s, q = {str(x[7])} rad/s, r = {str(x[8])} rad/s')
+    print(f'Phi = {str(x[9])} rad, Theta = {str(x[10])} rad, Psi = {str(x[11])} rad\n')
 		
-        
-        figure
-		subplot(1,2,1)
-		plot(Index,TrimHist(1,:),Index,TrimHist(2,:),Index,TrimHist(3,:)), legend('Stabilator', 'Thrust', 'Pitch Angle')
-		xlabel('Iterations'), ylabel('Stabilator(blue), Thrust(green), Pitch Angle(red)'), grid
-        title('Trim Parameters'), legend('Stabilator, rad', 'Thrust, 100%', 'Pitch Angle, rad')
-		subplot(1,2,2)
-		semilogy(Index,TrimHist(4,:))
-		xlabel('Iterations'), ylabel('Trim Cost'), grid
-        title('Trim Cost')
+
+plt.figure(1, figsize=(16,9))
+plt.subplot(121)
+plt.plot(Index,TrimHist[0,:],'b-', Index,TrimHist[1,:],'g-', Index,TrimHist[2,:],'r-')
+plt.xlabel('Iterations')
+plt.ylabel('Stabilator(blue), Thrust(green), Pitch Angle(red)')
+plt.title('Trim Parameters')
+plt.axis([0, 350, -0.15, 0.25])
+plt.grid(True)
+plt.subplot(122)
+plt.plot(Index,TrimHist[3,:],'b-')
+plt.xlabel('Iterations')
+plt.ylabel('Trim Cost')
+plt.title('Trim Cost')
+plt.axis([0, 350, -1, 6])
+plt.grid(True)
+plt.show()
 
 
-#######################################################################
-
-OptParam        =   np.array([]).reshape((0,0))
-TrimHist        =   np.zeros(4).reshape((4,1))
-InitParam		=	(np.array([0.0369,0.1892,0.0986])).reshape((3,1)).ravel()
-print(f'InitParam = {InitParam}')
-
-A  = fmin(TrimCost,InitParam)
-print(f'A[1] = {A[1]}')
-print(f'A[2] = {A[2]}')
