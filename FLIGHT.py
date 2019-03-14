@@ -1,10 +1,11 @@
 ### FLIGHT.py -- Generic 6-DOF Trim, Linear Model, and Flight Path Simulation
 
-#import
 import math
 import numpy as np
 from scipy.optimize import fmin
+from scipy.integrate import solve_ivp
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import axes3d
 
 
 print('** ======================= **')
@@ -19,21 +20,21 @@ print('** ======================= **\n')
 #       Simulate flight path using nonlinear equation of motion
 
 #### Function used by FLIGHT:
-#       AeroModelAlpha.py    High-Alpha, Low-Mach aerodynamic coefficients of the aircraft,
-#                            thrust model, and geometric and inertial properties
-#       AeroModelMach.py     Low-Alpha, High-Mach aerodynamic coefficients of the aircraft,
-#                            thrust model, and geometric and inertial properties
-#       AeroMoedelUser.py    User-defined aerodynamic corfficietns of the aircraft,
-#                            thrust model, and geometric and inertial properties
-#       Atoms.py             Air density, sound speed
-#       DCM.py               Direction-cosine (Rotation) matrix from Euler Angles
-#       RMQ.py               Direction-cosine (Rotation) matrix from Quaternions
-#       EoM.py               Equations of motion for integration (Euler Angles)
-#       EoMQ.py              Equations of motion for integration (Quaternions)
-#       Linmodel.py          Equations of motion for defining linear-model
-#                            (F & G) matrices via central differences
-#       TrimCost.py          Cost function for trim solution
-#       WindField.py         Wind velocity components
+#       AeroModelAlpha    High-Alpha, Low-Mach aerodynamic coefficients of the aircraft,
+#                         thrust model, and geometric and inertial properties
+#       AeroModelMach     Low-Alpha, High-Mach aerodynamic coefficients of the aircraft,
+#                         thrust model, and geometric and inertial properties
+#       AeroMoedelUser    User-defined aerodynamic corfficietns of the aircraft,
+#                         thrust model, and geometric and inertial properties
+#       Atoms             Air density, sound speed
+#       DCM               Direction-cosine (Rotation) matrix from Euler Angles
+#       RMQ               Direction-cosine (Rotation) matrix from Quaternions
+#       EoM               Equations of motion for integration (Euler Angles)
+#       EoMQ              Equations of motion for integration (Quaternions)    ##### WILL DO THIS LATER ######
+#       Linmodel          Equations of motion for defining linear-model
+#                         (F & G) matrices via central differences
+#       TrimCost          Cost function for trim solution
+#       WindField         Wind velocity components
 
 ### DEFINITION OF THE STATE VECTOR
 ##   With Euler Angle DCM option (QUAT=0):
@@ -50,7 +51,7 @@ print('** ======================= **\n')
 #       x[10]   =   Pitch angle of body w.r.t Earth, qhir, rad
 #       x[11]   =   Yaw angle of body w.r.t Earth, psir, rad 
 ##  With Quaternions DCM option (QUAT=1):
-#       ## WILL DO THIS LATER ##
+#       ##### WILL DO THIS LATER ######
 
 
 ### DEFINITION OF THE CONTROL VECTOR
@@ -209,6 +210,10 @@ def AeroModelUser(x,u,Mach,alphar,betar,V):
         T-X Trainer Aerodynamic Coefficients, Thrust Model,
         and Geometric and Inertial Properties for FLIGHT.py
         Low-Angle-of-Attack, Mach-Dependent Model
+
+        Called by:
+                EoM.py
+                EoMQ.py
     '''
 
     # Mass, Inertial, and Reference Properties
@@ -330,9 +335,8 @@ def EoM(t,x):
     # else:
     #     from AeroModelUser import AeroModelUser as AeroModel
 
-	##### Event Function ####### ????????????????
-	############################
-
+	## Event Function
+    (value, terminal, direction) = event(t,x)
 
 	# Earth-to-Body-Axis Transformation Matrix
     HEB = DCM(x[9],x[10],x[11])
@@ -358,11 +362,10 @@ def EoM(t,x):
     Mach	= 	V / soundSpeed
     qbar	=	0.5 * airDens * V**2
 
-
 	# Incremental Flight Control Effects
     if CONHIS >=1 and RUNNING ==1:
 		## uInc = array([])
-        uInc    =   np.interp(t, tuHis,deluHis[:, 0])
+        uInc    =   np.interp(t, tuHis.ravel(),deluHis[:, 0])
         uInc    =   np.matrix.transpose(np.array(uInc))   # Transpose
         uTotal  =   u + uInc
     else:
@@ -491,6 +494,72 @@ def LinModel(tj,xj):
     xdotj   =   np.concatenate((xdot, np.array([0,0,0,0,0,0,0])))
 
     return xdotj
+
+###############################################################################
+def event(t,x):
+    '''
+        Time when (-height) passes through zero in an increasing direction.
+    '''
+    value       =   x[5]    # detect positive x[5] = 0
+    terminal    =   True    # stop the integration
+    direction   =   1       # positive direction
+
+    return (value, terminal, direction)
+
+###############################################################################
+class ODEModel:
+
+    def __init__(self, eps=1e-10):
+        self.eps = eps
+        self.farray  = []
+    
+    def add_function(self, f):
+        self.farray.append(f)
+    
+    def f(self, t, x):
+        return np.array([fi(t,x) for fi in self.farray], dtype=np.float)
+    
+    def df(self, t, x):
+        J = np.zeros([len(x), len(x)], dtype=np.float)
+
+        for i in range(len(x)):
+            x1 = x.copy()
+            x2 = x.copy()
+
+            x1[i] += self.eps
+            x2[i] -= self.eps
+
+            f1 = self.f(t, x1)
+            f2 = self.f(t, x2)
+
+            J[:, i] = (f1 - f2) / (2 * self.eps)
+
+        return J
+
+################################################################################
+import time
+
+def TicTocGenerator():
+    # Generator that returns time differences
+    ti = 0           # initial time
+    tf = time.time() # final time
+    while True:
+        ti = tf
+        tf = time.time()
+        yield tf-ti # returns the time difference
+
+TicToc = TicTocGenerator() # create an instance of the TicTocGen generator
+
+# This will be the main function through which we define both tic() and toc()
+def toc(tempBool=True):
+    # Prints the time difference yielded by generator instance TicToc
+    tempTimeInterval = next(TicToc)
+    if tempBool:
+        print( "Elapsed time: %f seconds.\n" %tempTimeInterval )
+
+def tic():
+    # Records a time in TicToc, marks the beginning of a time interval
+    toc(False)
 
 ################################################################################
 ##########################################################################################################################################
@@ -700,11 +769,12 @@ if TRIM >= 1:
     print(f'Phi = {str(x[9])} rad, Theta = {str(x[10])} rad, Psi = {str(x[11])} rad\n')
 		
 
-plt.figure(1, figsize=(16,9))
+plt.figure('Convergence of trim parameters and trim-error cost function', figsize=(16,9))
 plt.subplot(121)
 plt.plot(Index,TrimHist[0,:],'b-', Index,TrimHist[1,:],'g-', Index,TrimHist[2,:],'r-')
 plt.xlabel('Iterations')
 plt.ylabel('Stabilator(blue), Thrust(green), Pitch Angle(red)')
+plt.legend(('Stabilator', 'Thrust', 'Pitch Angle'))
 plt.title('Trim Parameters')
 plt.axis([0, 350, -0.15, 0.25])
 plt.grid(True)
@@ -715,6 +785,235 @@ plt.ylabel('Trim Cost')
 plt.title('Trim Cost')
 plt.axis([0, 350, -1, 6])
 plt.grid(True)
+plt.show()
+
+xdot = EoM(1,x)
+
+print(f'x = {x}')
+
+print(f'xdot = {xdot}')
+### Stability-and-Control Derivative Calculation
+#   ============================================
+if LINEAR >= 1:
+    print('\nGenerate and Save LINEAR MODEL')
+    print('==============================')
+    #thresh	=	np.array([.1,.1,.1,.1,.1,.1,.1,.1,.1,.1,.1,.1,.1,.1,.1,.1,.1,.1,.1])
+    xj		=	np.array(x+u)
+    uTemp   =   u           # 'numjac' modifies 'u'; reset 'u' after the call
+    xdotj		=	LinModel(ti,xj)
+    print(f'xdotj = {xdotj}')
+    #[dFdX,fac]	=	numjac('LinModel',ti,xj,xdotj,thresh,[],0)
+    #u           =   uTemp
+    #Fmodel		=	dFdX(1:12,1:12)
+    #Gmodel		=	dFdX(1:12,13:19)
+    #save ('Fmodel','Fmodel','TASms','hm')
+    #save ('Gmodel','Gmodel')
+
+
+### Flight Path Simulation, with Quaternion Option
+#   ==============================================
+if SIMUL >= 1:
+    RUNNING =   1  
+    tspan	=	(ti, tf)
+    xo      =   x + delx
+    u		=	u + delu
+    
+    print('Trimmed Initial Control and State Vectors PLUS Test Inputs')
+    print('==========================================================')
+    print('Control Vector')
+    print('--------------')
+    print(f'Elevator   = {str(u[0])} rad, Aileron = {str(u[1])} rad, Rudder = {str(u[2])} rad')
+    print(f'Throttle   = {str(u[3])} x 100%, Asymm Spoiler = {str(u[4])} rad, Flap = {str(u[5])} rad')
+    print(f'Stabilator = {str(u[5])} rad')
+
+    print('\nState Vector')
+    print('------------')
+    print(f'u   = {str(xo[0])} m/s, v = {str(xo[1])} m/s, w = {str(xo[2])} m/s')
+    print(f'x   = {str(xo[3])} m, y = {str(xo[4])} m, z = {str(xo[5])} m')
+    print(f'p   = {str(xo[6])} rad/s, q = {str(xo[7])} rad/s, r = {str(xo[8])} rad/s')
+    print(f'Phi = {str(xo[9])} rad, Theta = {str(xo[10])} rad, Psi = {str(xo[11])} rad\n')
+    
+# switch QUAT  :  0: Euler Angles    1: Quaternions
+if QUAT == 0:
+    print('Use Euler Angles to form Rotation Matrix')
+    print('========================================')
+    
+    tic()
+    sol = solve_ivp(EoM,tspan,xo,method='BDF',events=event,rtol=1e-13,atol=1e-13)     ### change rtol & atol and observe effects on plot
+    toc()
+    t = sol.t
+    x = sol.y
+    kHis	=	len(t)
+    print(f'# of Time Steps = {str(kHis)}\n')
+    #print(f't = {sol.t}')
+    #print(f'x = {sol.y}')
+        
+elif QUAT == 1:
+    pass          ##### WILL DO THIS LATER ######
+
+
+print(f'delu = {delu}')
+print(f'deluHist = {deluHis}')
+
+
+### Plot Control History
+plt.figure('Test Inputs(Controls) Vs Time', figsize=(16,9))
+plt.subplot(221)
+plt.plot(tuHis, 57.29578*deluHis[:,0] + 57.29578*delu[0],'b-' , tuHis, 57.29578*deluHis[:,6] + 57.29578*delu[6],'g-')
+plt.xlabel('Time, s')
+plt.ylabel('Elevator (blue), Stabilator (green), deg')
+plt.grid(True)
+plt.title('Pitch Test Inputs')
+plt.legend(('Elevator, dE', 'Stabilator, dS'))
+plt.subplot(222)
+plt.plot(tuHis, 57.29578*deluHis[:,1] + 57.29578*delu[1],'b-' , tuHis, 57.29578*deluHis[:,2] + 57.29578*delu[2],'g-' , tuHis, 57.29578*deluHis[:,4] + 57.29578*delu[4],'r-')    
+plt.xlabel('Time, s')
+plt.ylabel('Aileron (blue), Rudder (green), Asymmetric Spoiler (red), deg')
+plt.grid(True)
+plt.title('Lateral-Directional Test Inputs')
+plt.legend(('Aileron, dA', 'Rudder, dR', 'Asymmetric Spoiler, dAS'))
+plt.subplot(223)
+plt.plot(tuHis, deluHis[:,3] + delu[3])    
+plt.xlabel('Time, s')
+plt.ylabel('Throttle Setting')
+plt.grid(True)
+plt.title('Throttle Test Inputs')
+plt.subplot(224)
+plt.plot(tuHis, 57.29578*deluHis[:,5] + 57.29578*delu[5])    
+plt.xlabel('Time, s')
+plt.ylabel('Flap, deg')
+plt.grid(True)
+plt.title('Flap Test Inputs')
+plt.show()
+
+
+print(f't.shape = {t.shape}')
+print(f'x.shape = {x.shape}')
+
+### Plot State History
+plt.figure('Velocities Vs Time', figsize=(16,9))
+plt.subplot(221)
+plt.plot(t,x[0,:])
+plt.xlabel('Time, s')
+plt.ylabel('Axial Velocity (u), m/s')
+plt.grid(True)
+plt.title('Forward Body-Axis Component of Inertial Velocity, u')
+plt.subplot(222)
+plt.plot(t,x[1,:])
+plt.xlabel('Time, s')
+plt.ylabel('Side Velocity (v), m/s')
+plt.grid(True)
+plt.title('Side Body-Axis Component of Inertial Velocity, v')
+plt.subplot(223)
+plt.plot(t,x[2,:])
+plt.xlabel('Time, s')
+plt.ylabel('Normal Velocity (w), m/s')
+plt.grid(True)
+plt.title('Normal Body-Axis Component of Inertial Velocity, z')
+plt.subplot(224)
+plt.plot(t,x[0,:],'b-',t,x[1,:],'g-',t,x[2,:],'r-')
+plt.xlabel('Time, s')
+plt.ylabel('u (blue), v (green), w (red), m/s')
+plt.grid(True)
+plt.title('Body-Axis Component of Inertial Velocity') 
+plt.legend(('Axial velocity, u', 'Side velocity, v', 'Normal velocity, w'))
+
+plt.figure('Location Vs Time', figsize=(16,9))
+plt.subplot(321)
+plt.plot(t,x[3,:])
+plt.xlabel('Time, s')
+plt.ylabel('North (x), m')
+plt.grid(True)
+plt.title('North Location, x')
+plt.subplot(322)
+plt.plot(t,x[4,:])
+plt.xlabel('Time, s')
+plt.ylabel('East (y), m')
+plt.grid(True)
+plt.title('East Location, y')
+plt.subplot(323)
+plt.plot(t,-x[5,:])
+plt.xlabel('Time, s')
+plt.ylabel('Altitude (-z), m')
+plt.grid(True)
+plt.title('Altitude, -z')
+plt.subplot(324)
+plt.plot((np.sqrt(x[3,:]*x[3,:] + x[4,:]*x[5,:])),-x[5,:])       #### element wise
+plt.xlabel('Ground Range, m')
+plt.ylabel('Altitude, m')
+plt.grid(True)
+plt.title('Altitude vs. Ground Range')
+plt.subplot(325)
+plt.plot(x[3,:],x[4,:])
+plt.xlabel('North, m')
+plt.ylabel('East, m')
+plt.grid(True)
+plt.title('Ground Track, North vs. East')
+fig = plt.figure('3D Flight Path', figsize=(16,9))
+ax = fig.add_subplot(111, projection='3d')
+ax.plot(x[3,:],x[4,:],-x[5,:])
+# plt.subplot(326)
+# plt.plot3(x[:,3],x[:,4],-x[:,5])
+# plt.xlabel('North, m')
+# plt.ylabel('East, m')
+# plt.zlabel('Altitude, m')
+# plt.grid(True)
+#plt.title('3D Flight Path')
+plt.show()
+
+plt.figure('Pitch Roll Yaw rates Vs Time', figsize=(16,9))
+plt.subplot(221)
+plt.plot(t,x[6,:] * 57.29578)
+plt.xlabel('Time, s')
+plt.ylabel('Roll Rate (p), deg/s')
+plt.grid(True)
+plt.title('Body-Axis Roll Component of Inertial Rate, p')
+plt.subplot(222)
+plt.plot(t,x[7,:] * 57.29578)
+plt.xlabel('Time, s')
+plt.ylabel('Pitch Rate (q), deg/s')
+plt.grid(True)
+plt.title('Body-Axis Pitch Component of Inertial Rate, q')
+plt.subplot(223)
+plt.plot(t,x[8,:] * 57.29578)
+plt.xlabel('Time, s')
+plt.ylabel('Yaw Rate (r), deg/s')
+plt.grid(True)
+plt.title('Body-Axis Yaw Component of Inertial Rate, r')
+plt.subplot(224)
+plt.plot(t,x[6,:] * 57.29578,'b-',t,x[7,:] * 57.29578,'g-',t,x[8,:] * 57.29578,'r-')
+plt.xlabel('Time, s')
+plt.ylabel('p (blue), q (green), r (red), deg/s')
+plt.grid(True)
+plt.title('Body-Axis Inertial Rate Vector Components')
+plt.legend(('Roll rate, p', 'Pitch rate, q', 'Yaw rate, r'))
+
+plt.figure('Pitch Roll Yaw Attitude(Angles) Vs Time', figsize=(16,9))
+plt.subplot(221)
+plt.plot(t,x[9,:] * 57.29578)
+plt.xlabel('Time, s')
+plt.ylabel('Roll Angle (phi), deg')
+plt.grid(True)
+plt.title('Earth-Relative Roll Attitude')
+plt.subplot(222)
+plt.plot(t,x[10,:] * 57.29578)
+plt.xlabel('Time, s')
+plt.ylabel('Pitch Angle (theta), deg')
+plt.grid(True)
+plt.title('Earth-Relative Pitch Attitude')
+plt.subplot(223)
+plt.plot(t,x[11,:] * 57.29578)
+plt.xlabel('Time, s')
+plt.ylabel('Yaw Angle (psi, deg')
+plt.grid(True)
+plt.title('Earth-Relative Yaw Attitude')
+plt.subplot(224)
+plt.plot(t,x[9,:] * 57.29578,'b-',t,x[10,:] * 57.29578,'g-',t,x[11,:] * 57.29578,'r-')
+plt.xlabel('Time, s')
+plt.ylabel('phi (blue), theta (green), psi (red), deg')
+plt.grid(True)
+plt.title('Euler Angles')
+plt.legend(('Roll angle, phi', 'Pitch angle, theta', 'Yaw angle, psi'))
 plt.show()
 
 
