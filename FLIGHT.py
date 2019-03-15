@@ -212,8 +212,8 @@ def AeroModelUser(x,u,Mach,alphar,betar,V):
         Low-Angle-of-Attack, Mach-Dependent Model
 
         Called by:
-                EoM.py
-                EoMQ.py
+                EoM
+                EoMQ
     '''
 
     # Mass, Inertial, and Reference Properties
@@ -785,7 +785,7 @@ plt.ylabel('Trim Cost')
 plt.title('Trim Cost')
 plt.axis([0, 350, -1, 6])
 plt.grid(True)
-plt.show()
+#plt.show()
 
 xdot = EoM(1,x)
 
@@ -852,10 +852,6 @@ elif QUAT == 1:
     pass          ##### WILL DO THIS LATER ######
 
 
-print(f'delu = {delu}')
-print(f'deluHist = {deluHis}')
-
-
 ### Plot Control History
 plt.figure('Test Inputs(Controls) Vs Time', figsize=(16,9))
 plt.subplot(221)
@@ -884,11 +880,8 @@ plt.xlabel('Time, s')
 plt.ylabel('Flap, deg')
 plt.grid(True)
 plt.title('Flap Test Inputs')
-plt.show()
+#plt.show()
 
-
-print(f't.shape = {t.shape}')
-print(f'x.shape = {x.shape}')
 
 ### Plot State History
 plt.figure('Velocities Vs Time', figsize=(16,9))
@@ -917,6 +910,11 @@ plt.ylabel('u (blue), v (green), w (red), m/s')
 plt.grid(True)
 plt.title('Body-Axis Component of Inertial Velocity') 
 plt.legend(('Axial velocity, u', 'Side velocity, v', 'Normal velocity, w'))
+
+print(f'x[3,:] = {x[3,:]}')
+print(f'x[4,:] = {x[4,:]}')
+print(f'x[5,:] = {x[5,:]}')
+
 
 plt.figure('Location Vs Time', figsize=(16,9))
 plt.subplot(321)
@@ -952,14 +950,10 @@ plt.title('Ground Track, North vs. East')
 fig = plt.figure('3D Flight Path', figsize=(16,9))
 ax = fig.add_subplot(111, projection='3d')
 ax.plot(x[3,:],x[4,:],-x[5,:])
-# plt.subplot(326)
-# plt.plot3(x[:,3],x[:,4],-x[:,5])
-# plt.xlabel('North, m')
-# plt.ylabel('East, m')
-# plt.zlabel('Altitude, m')
-# plt.grid(True)
-#plt.title('3D Flight Path')
-plt.show()
+ax.set_xlabel('North, m')
+ax.set_ylabel('East, m')
+ax.set_zlabel('Altitude, m')
+#plt.show()
 
 plt.figure('Pitch Roll Yaw rates Vs Time', figsize=(16,9))
 plt.subplot(221)
@@ -1014,6 +1008,109 @@ plt.ylabel('phi (blue), theta (green), psi (red), deg')
 plt.grid(True)
 plt.title('Euler Angles')
 plt.legend(('Roll angle, phi', 'Pitch angle, theta', 'Yaw angle, psi'))
+#plt.show()
+
+
+VAirRel         =   np.zeros(1)
+vEarth          =   np.zeros(3)
+AlphaAR         =   np.zeros(1)
+BetaAR          =   np.zeros(1)
+windBody        =   np.zeros(3).reshape((3,1))
+airDensHis      =   np.zeros(1)
+soundSpeedHis   =   np.zeros(1)
+qbarHis         =   np.zeros(1)
+GammaHis        =   np.zeros(1)
+XiHis           =   np.zeros(1)
+
+for i in range(1,kHis):
+    windb           =	WindField(-x[5,i],x[8,i],x[10,i],x[11,i]).reshape((3,1))
+    windBody        =   np.concatenate((windBody, windb), axis =1)
+    (airDens,airPres,temp,soundSpeed) = Atoms(-x[5,i])
+    airDensHis      =   np.concatenate((airDensHis, np.array([airDens])))
+    soundSpeedHis   =   np.concatenate((soundSpeedHis, np.array([soundSpeed])))
+#end
+
+vBody           =   np.array([x[0,:], x[1,:], x[2,:]]).T      # shape :  (95,3)
+vBodyAir        =   vBody[1:,:] + windBody[:,1:].T
+
+for i in range(1,kHis-1):
+    vE          =   np.matmul(DCM(x[9,i],x[10,i],x[11,i]).T, np.array([vBody[i,0],vBody[i,1],vBody[i,2]]))
+    VER         =   math.sqrt(vE[0]**2 + vE[1]**2 + vE[2]**2)
+    VAR         =   math.sqrt(vBodyAir[i,0]**2 + vBodyAir[i,1]**2 + vBodyAir[i,2]**2)
+    VARB        =   math.sqrt(vBodyAir[i,0]**2 + vBodyAir[i,2]**2)
+
+    if vBodyAir[i,0] >= 0:
+        Alphar      =	math.asin(vBodyAir[i,2] / VARB)
+    else:
+        Alphar      =	math.pi - math.asin(vBodyAir[i,2] / VARB)
+
+    Alphar = np.array([Alphar])
+    AlphaAR     =   np.concatenate((AlphaAR, Alphar))
+    Betar       = 	math.asin(vBodyAir[i,1] / VAR)
+    Betar = np.array([Betar])
+    BetaAR      =   np.concatenate((BetaAR, Betar))
+    vEarth      =   (np.vstack((vEarth, vE)))
+    Xir         =   math.asin((vEarth[i,1]) / (math.sqrt((vEarth[i,0])**2 + (vEarth[i,1])**2)))
+    
+    if vEarth[i,0] <= 0 and vEarth[i,1] <= 0:
+        Xir     = -math.pi - Xir
+
+    if vEarth[i,0] <= 0 and vEarth[i,1] >= 0:
+        Xir     = math.pi - Xir
+
+    Gammar      =   math.asin(-vEarth[i,2] / VER)
+    Gammar      =   np.array([Gammar])
+    GammaHis    =   np.concatenate((GammaHis, Gammar)) 
+    Xir         =   np.array([Xir])         
+    XiHis       =   np.concatenate((XiHis, Xir))
+    VAR         =   np.array([VAR])
+    VAirRel     =   np.vstack((VAirRel, VAR))
+
+MachHis         =   np.divide(VAirRel[:,0], soundSpeedHis[1:])
+AlphaDegHis 	=	57.2957795 * AlphaAR
+BetaDegHis      =	57.2957795 * BetaAR
+qbarHis         =	0.5 * airDensHis[1:] * VAirRel[:,0] * VAirRel[:,0]
+GammaDegHis     =   57.2957795 * GammaHis
+XiDegHis        =   57.2957795 * XiHis
+
+
+plt.figure('Vair Mach qbar vs Time', figsize=(16,9))
+plt.subplot(311)
+plt.plot(t[1:], VAirRel[:,0])       ## zome out very high to see minor oscilation
+plt.xlabel('Time, s')
+plt.ylabel('Air-relative Speed, m/s')
+plt.grid(True)
+plt.title('True AirSpeed, Vair')
+plt.subplot(312)
+plt.plot(t[1:], MachHis)       ## zome out very high to see minor oscilation  
+plt.xlabel('Time, s')
+plt.ylabel('M')
+plt.grid(True)
+plt.title('Mach Number, M')
+plt.subplot(313)
+plt.plot(t[1:], qbarHis)       ## zome out very high to see minor oscilation    
+plt.xlabel('Time, s')
+plt.ylabel('qbar, N/m^2')
+plt.grid(True)
+plt.title('Dynamic Pressure, qbar')
+
+plt.figure('Aerodynamic and Flight Path Angles Vs Time', figsize=(16,9))
+plt.subplot(211)
+plt.plot(t[1:], AlphaDegHis, t[1:], BetaDegHis)    
+plt.xlabel('Time, s')
+plt.ylabel('Angle of Attack, deg (blue), Sideslip Angle, deg (green)')
+plt.grid(True)
+plt.title('Aerodynamic Angles')
+plt.legend(('Angle of Attack, alpha', 'Sideslip Angle, beta'))
+plt.subplot(212)
+plt.plot(t[1:], GammaDegHis, t[1:], XiDegHis)    
+plt.xlabel('Time, s')
+plt.ylabel(('Vertical, deg (blue), Horizontal, deg (green)'))
+plt.grid(True)
+plt.title('Flight Path Angles')
+plt.legend(('Flight Path Angle, gamma', 'Heading Angle, psi'))
+
 plt.show()
 
-
+print('\nEnd of FLIGHT Simulation')
+############################################################################################
