@@ -562,41 +562,72 @@ def tic():
     toc(False)
 
 ################################################################################
-def jacobian(ti, xj):
+def jacobian(xequil, uequil, ti):
 
-    tol = 0.0001
-    xjdot = LinModel(ti,xj)
+    tol = 1e-8
+    xe = xequil
+    ue = uequil
+    x = xe.copy()
+    u = ue.copy()
+
+    xde = LinModel(ti, x)
 
     ###### F-Matrix #######
-    AA = np.zeros((12,12))
-
+    F = np.zeros((12,12))
     for i in range(12):
         for j in range(12):
-            xe = xj.copy()
+            xe = x.copy()
             delta = 0.01
             slope1 = 0
             diff = 0.9
 
-            if xj[i] == 0:
+            if xe[i] == 0:
                 delta = 0.5
             else:
-                delta = delta * xj[i]
+                delta = delta * xe[i]
             
             while diff > tol:
-                xe[i] = xj[i] + delta
-                xdot = LinModel(ti, xe)
-
-                slope2 = (xdot[j] - xjdot[j]) / delta
+                xe[i] = xe[i] + delta
+                xd = LinModel(ti, x)
+                slope2 = (xd[j] - xde[j]) / delta
                 diff = abs(slope1 - slope2)
                 delta = delta * 0.1
                 slope1 = slope2
 
                 assert diff <= 1e6, 'No convergence when numerically computing A matrix'
 
-            AA[j,i] = slope1
+            F[j,i] = slope1
 
-    return AA
+    ##### G-Matrix #####
+    G = np.zeros((12,7))
+    xe = xe.copy()
+    for i in range(7):
+        for j in range(12):
+            u = ue.copy()
+            delta = 0.01
+            slope1 = 0
+            diff = 1
 
+            if ue[i] == 0:
+                delta = 0.5
+            else:
+                delta = delta * ue[i]
+
+            while diff > tol:
+                u[i] = ue[i] + delta
+                xd = LinModel(ti, x)
+
+                slope2 = (xd[j] - xde[j]) / delta
+                diff = abs(slope2 - slope1)
+                delta = delta * 0.1
+                slope1 = slope2
+
+                assert diff <= 1e6, 'No convergence when numerically computing B matrix'
+
+            G[j, i] = slope1
+
+    return (F, G)
+    
 ################################################################################
 ##########################################################################################################################################
 ##########################################################################################################################################
@@ -804,7 +835,6 @@ if TRIM >= 1:
     print(f'p   = {str(x[6])} rad/s, q = {str(x[7])} rad/s, r = {str(x[8])} rad/s')
     print(f'Phi = {str(x[9])} rad, Theta = {str(x[10])} rad, Psi = {str(x[11])} rad\n')
 		
-
 plt.figure('Convergence of trim parameters and trim-error cost function', figsize=(16,9))
 plt.subplot(121)
 plt.plot(Index,TrimHist[0,:],'b-', Index,TrimHist[1,:],'g-', Index,TrimHist[2,:],'r-')
@@ -823,27 +853,21 @@ plt.axis([0, 350, -1, 6])
 plt.grid(True)
 #plt.show()
 
-xdot = EoM(1,x)
-
-print(f'x = {x}')
-
-print(f'xdot = {xdot}')
 ### Stability-and-Control Derivative Calculation
 #   ============================================
 if LINEAR >= 1:
     print('\nGenerate and Save LINEAR MODEL')
     print('==============================')
-    #thresh	=	np.array([.1,.1,.1,.1,.1,.1,.1,.1,.1,.1,.1,.1,.1,.1,.1,.1,.1,.1,.1])
-    xj		=	np.array(x+u)
-    uTemp   =   u           # 'numjac' modifies 'u'; reset 'u' after the call
-    #xdotj		=	LinModel(ti,xj)
-    #print(f'xdotj = {xdotj}')
-    AA = jacobian(ti, xj)
-    print(f'AA = {AA}')
-    #[dFdX,fac]	=	numjac('LinModel',ti,xj,xdotj,thresh,[],0)
-    #u           =   uTemp
-    #Fmodel		=	dFdX(1:12,1:12)
-    #Gmodel		=	dFdX(1:12,13:19)
+    xj = np.array(x + u)
+    xTemp   =   x
+    uTemp   =   u
+    print(f'x = {x}')
+    print(f'u = {u}')
+    (F, G) = jacobian(xj, u, ti)
+    print(f'F Matrix = {F}')
+    print(f'G Matrix = {G}')
+    u           =   uTemp
+    x           =   xTemp
     #save ('Fmodel','Fmodel','TASms','hm')
     #save ('Gmodel','Gmodel')
 
@@ -948,10 +972,6 @@ plt.ylabel('u (blue), v (green), w (red), m/s')
 plt.grid(True)
 plt.title('Body-Axis Component of Inertial Velocity') 
 plt.legend(('Axial velocity, u', 'Side velocity, v', 'Normal velocity, w'))
-
-print(f'x[3,:] = {x[3,:]}')
-print(f'x[4,:] = {x[4,:]}')
-print(f'x[5,:] = {x[5,:]}')
 
 
 plt.figure('Location Vs Time', figsize=(16,9))
@@ -1148,7 +1168,7 @@ plt.grid(True)
 plt.title('Flight Path Angles')
 plt.legend(('Flight Path Angle, gamma', 'Heading Angle, psi'))
 
-#plt.show()
+plt.show()
 
 print('\nEnd of FLIGHT Simulation')
 ############################################################################################
