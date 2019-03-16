@@ -507,36 +507,6 @@ def event(t,x):
     return (value, terminal, direction)
 
 ###############################################################################
-class ODEModel:
-
-    def __init__(self, eps=1e-10):
-        self.eps = eps
-        self.farray  = []
-    
-    def add_function(self, f):
-        self.farray.append(f)
-    
-    def f(self, t, x):
-        return np.array([fi(t,x) for fi in self.farray], dtype=np.float)
-    
-    def df(self, t, x):
-        J = np.zeros([len(x), len(x)], dtype=np.float)
-
-        for i in range(len(x)):
-            x1 = x.copy()
-            x2 = x.copy()
-
-            x1[i] += self.eps
-            x2[i] -= self.eps
-
-            f1 = self.f(t, x1)
-            f2 = self.f(t, x2)
-
-            J[:, i] = (f1 - f2) / (2 * self.eps)
-
-        return J
-
-################################################################################
 import time
 
 def TicTocGenerator():
@@ -790,9 +760,9 @@ plt.grid(True)
 xdot = EoM(1,x)
 
 print(f'x = {x}')
-
 print(f'xdot = {xdot}')
-### Stability-and-Control Derivative Calculation
+
+### Stability-and-Control Derivative Calculation           ##### WILL DO THIS LATER ######
 #   ============================================
 if LINEAR >= 1:
     print('\nGenerate and Save LINEAR MODEL')
@@ -911,11 +881,6 @@ plt.grid(True)
 plt.title('Body-Axis Component of Inertial Velocity') 
 plt.legend(('Axial velocity, u', 'Side velocity, v', 'Normal velocity, w'))
 
-print(f'x[3,:] = {x[3,:]}')
-print(f'x[4,:] = {x[4,:]}')
-print(f'x[5,:] = {x[5,:]}')
-
-
 plt.figure('Location Vs Time', figsize=(16,9))
 plt.subplot(321)
 plt.plot(t,x[3,:])
@@ -1009,7 +974,6 @@ plt.grid(True)
 plt.title('Euler Angles')
 plt.legend(('Roll angle, phi', 'Pitch angle, theta', 'Yaw angle, psi'))
 #plt.show()
-
 
 VAirRel         =   np.zeros(1)
 vEarth          =   np.zeros(3)
