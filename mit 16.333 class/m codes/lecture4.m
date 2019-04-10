@@ -39,10 +39,10 @@ B=[Xde/m Xdp/m;Zde/(m-Zwd) Zdp/(m-Zwd);(Mde+Zde*Mwd/(m-Zwd))/Iyy ...
       (Mdp+Zdp*Mwd/(m-Zwd))/Iyy;0 0];
 C=[eye(3,4)];
 
-wsp=sqrt(-U0*Mw/Iyy)
+wsp=sqrt(-U0*Mw/Iyy)       % sp - short period
 zetasp=-Mq/2*sqrt(-1/U0/Mw/Iyy)
 
-wsp=sqrt(Zw*Mq/m/Iyy-U0*Mw/Iyy)
+wsp=sqrt(Zw*Mq/m/Iyy-U0*Mw/Iyy)		% p - phugoid
 zetasp=-(Zw/m+Mq/Iyy+Mwd/Iyy*U0)/2/wsp
 
 [V,ev]=eig(A);ev=diag(ev);D=V;
